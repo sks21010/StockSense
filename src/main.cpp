@@ -9,11 +9,15 @@
 #include <cmath>
 #include <memory>
 
-int main() {
+int main(int argc, char* argv[]) {
     StockDataLoader loader;
     StockAnalytics analytics;
 
-    std::string ticker = "AAPL"; // one of AAPL, AMZN, GOOGL, META, MSFT, NVDA, TSLA
+    // Accept ticker from command line, default to AAPL if not provided
+    std::string ticker = "AAPL";
+    if (argc > 1) {
+        ticker = argv[1];
+    }
     
     auto data = loader.LoadByTicker(ticker);
     std::cout << "Loaded " << data.size() << " rows for " << ticker << ".\n";
