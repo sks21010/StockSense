@@ -43,7 +43,49 @@ private:
         size_t startIdx = data.size() - lookbackWindow;
         std::vector<StockData> backtestData(data.begin() + startIdx, data.end());
         
-        // Simulate trading based on strategy signals
+        // Special handling for Buy & Hold strategy
+        if (strategy->getName() == "Buy & Hold Strategy") {
+            // Buy at start, hold until end
+            double firstPrice = backtestData.front().close;
+            double lastPrice = backtestData.back().close;
+            
+            perf.totalReturn = (lastPrice - firstPrice) / firstPrice;
+            
+            // Calculate daily returns for Sharpe ratio
+            std::vector<double> dailyReturns;
+            for (size_t i = 1; i < backtestData.size(); ++i) {
+                double ret = (backtestData[i].close - backtestData[i-1].close) / backtestData[i-1].close;
+                dailyReturns.push_back(ret);
+            }
+            
+            perf.sharpeRatio = analytics.SharpeRatio(dailyReturns, 0.0);
+            
+            // Calculate max drawdown
+            double peak = backtestData[0].close;
+            double maxDD = 0.0;
+            for (const auto& point : backtestData) {
+                if (point.close > peak) peak = point.close;
+                double drawdown = (point.close - peak) / peak;
+                if (drawdown < maxDD) maxDD = drawdown;
+            }
+            perf.maxDrawdown = maxDD;
+            
+            // Win rate = % of positive days
+            int positiveDays = 0;
+            for (double ret : dailyReturns) {
+                if (ret > 0) positiveDays++;
+            }
+            perf.winRate = dailyReturns.empty() ? 0.0 : static_cast<double>(positiveDays) / dailyReturns.size();
+            
+            perf.score = (perf.totalReturn * 0.4) + 
+                         (perf.sharpeRatio * 0.3) + 
+                         (perf.winRate * 0.2) - 
+                         (perf.maxDrawdown * 0.1);
+            
+            return perf;
+        }
+        
+        // Simulate trading based on strategy signals (for active strategies)
         std::vector<double> portfolioReturns;
         int wins = 0;
         int totalTrades = 0;

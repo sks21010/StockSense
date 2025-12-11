@@ -3,6 +3,7 @@
 #include "StrategySelector.h"
 #include "TrendingStrategy.h"
 #include "MeanReversionStrategy.h"
+#include "BuyAndHoldStrategy.h"
 #include <iostream>
 #include <iomanip>
 #include <cmath>
@@ -170,6 +171,7 @@ int main() {
     std::vector<std::unique_ptr<AnalysisStrategy>> strategies;
     strategies.push_back(std::make_unique<TrendingStrategy>());
     strategies.push_back(std::make_unique<MeanReversionStrategy>());
+    strategies.push_back(std::make_unique<BuyAndHoldStrategy>());
 
     // Evaluate all strategies
     StrategySelector selector;
