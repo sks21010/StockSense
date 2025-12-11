@@ -45,4 +45,26 @@ public:
                         std::vector<double>& upper,
                         std::vector<double>& lower,
                         double numStdDev = 2.0);
+
+    // ---- Autocorrelation ----
+
+    // Compute autocorrelation at a specific lag
+    // Returns correlation coefficient between values[t] and values[t-lag]
+    // Result ranges from -1 (perfect negative correlation) to +1 (perfect positive correlation)
+    // Returns NaN if insufficient data or invalid lag
+    double Autocorrelation(const std::vector<double>& values, int lag);
+
+    // Compute autocorrelation function for multiple lags
+    // Returns vector of autocorrelation values for lag 1, 2, 3, ..., maxLag
+    // Useful for detecting patterns at different time scales (momentum, mean reversion)
+    std::vector<double> AutocorrelationFunction(const std::vector<double>& values, int maxLag);
+
+    // ---- Hurst Exponent ----
+
+    // Compute Hurst Exponent using Rescaled Range (R/S) analysis
+    // H > 0.5: Trending/persistent behavior (momentum)
+    // H = 0.5: Random walk (geometric Brownian motion)
+    // H < 0.5: Mean-reverting behavior (anti-persistent)
+    // Returns NaN if insufficient data
+    double HurstExponent(const std::vector<double>& values);
 };

@@ -227,3 +227,209 @@ void StockAnalytics::BollingerBands(const std::vector<StockData>& data,
         }
     }
 }
+
+// ------------------- Autocorrelation -------------------
+// Autocorrelation: how much today's value is related to/influenced by past values
+
+double StockAnalytics::Autocorrelation(const std::vector<double>& values, int lag) {
+
+    // ensure lag is valid (positive and less than data size)
+    if (lag <= 0 || static_cast<size_t>(lag) >= values.size()) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    // Calculate mean (excluding NaN values)
+    double sum = 0.0;
+    int count = 0;
+    for (double v : values) {
+        if (!std::isnan(v)) {
+            sum += v;
+            count++;
+        }
+    }
+
+    if (count == 0) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    double mean = sum / count;
+
+    // Calculate autocovariance and variance
+    double autocovariance = 0.0;
+    double variance = 0.0;
+    int pairs = 0;
+
+    for (size_t i = lag; i < values.size(); ++i) {
+        if (std::isnan(values[i]) || std::isnan(values[i - lag])) {
+            continue;
+        }
+
+        double diff_t = values[i] - mean;
+        double diff_lag = values[i - lag] - mean;
+
+        autocovariance += diff_t * diff_lag;
+        variance += diff_t * diff_t;
+        pairs++;
+    }
+
+    if (pairs == 0 || variance == 0.0) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    // Autocorrelation = autocovariance / variance
+    // Positive Autocorrelation = today's movement follows yesterday's (momentum)
+    // Negative Autocorrelation = today's movement opposed yesterday's (mean reversion)
+    // Near Zero Autocorrelation = no pattern (random walk)
+    double autocorrelation = autocovariance / variance;
+    return autocorrelation;
+}
+
+std::vector<double> StockAnalytics::AutocorrelationFunction(const std::vector<double>& values, int maxLag) {
+    std::vector<double> acf;
+    acf.reserve(maxLag);
+
+    for (int lag = 1; lag <= maxLag; ++lag) {
+        acf.push_back(Autocorrelation(values, lag));
+    }
+
+    return acf;
+}
+
+// ------------------- Hurst Exponent -------------------
+
+double StockAnalytics::HurstExponent(const std::vector<double>& values) {
+    // Need sufficient data for meaningful analysis
+    if (values.size() < 20) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    // Remove NaN values
+    std::vector<double> cleanValues;
+    for (double v : values) {
+        if (!std::isnan(v)) {
+            cleanValues.push_back(v);
+        }
+    }
+
+    if (cleanValues.size() < 20) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    // Use Rescaled Range (R/S) analysis
+    // Test multiple window sizes and compute R/S for each
+    std::vector<int> windowSizes;
+    std::vector<double> rescaledRanges;
+
+    // Generate window sizes (powers and mid-points)
+    int minWindow = 10;
+    int maxWindow = cleanValues.size() / 4;
+    
+    for (int w = minWindow; w <= maxWindow; w = static_cast<int>(w * 1.5)) {
+        if (w >= static_cast<int>(cleanValues.size())) break;
+        windowSizes.push_back(w);
+    }
+
+    if (windowSizes.size() < 3) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    // For each window size, compute average R/S
+    for (int window : windowSizes) {
+        std::vector<double> rsValues;
+
+        // Slide window through the data
+        for (size_t start = 0; start + window <= cleanValues.size(); ++start) {
+            // Extract window
+            std::vector<double> segment(cleanValues.begin() + start, 
+                                       cleanValues.begin() + start + window);
+
+            // Calculate mean
+            double mean = 0.0;
+            for (double v : segment) mean += v;
+            mean /= segment.size();
+
+            // Calculate cumulative deviations from mean
+            std::vector<double> cumDev(window);
+            cumDev[0] = segment[0] - mean;
+            for (int i = 1; i < window; ++i) {
+                cumDev[i] = cumDev[i-1] + (segment[i] - mean);
+            }
+
+            // Calculate range R
+            double maxCumDev = cumDev[0];
+            double minCumDev = cumDev[0];
+            for (double cd : cumDev) {
+                if (cd > maxCumDev) maxCumDev = cd;
+                if (cd < minCumDev) minCumDev = cd;
+            }
+            double range = maxCumDev - minCumDev;
+
+            // Calculate standard deviation S
+            double variance = 0.0;
+            for (double v : segment) {
+                double diff = v - mean;
+                variance += diff * diff;
+            }
+            variance /= segment.size();
+            double stddev = std::sqrt(variance);
+
+            // Avoid division by zero
+            if (stddev > 1e-10) {
+                rsValues.push_back(range / stddev);
+            }
+        }
+
+        // Average R/S for this window size
+        if (!rsValues.empty()) {
+            double avgRS = 0.0;
+            for (double rs : rsValues) avgRS += rs;
+            avgRS /= rsValues.size();
+            rescaledRanges.push_back(avgRS);
+        }
+    }
+
+    if (rescaledRanges.size() < 3) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    // Fit log(R/S) = H * log(n) + constant
+    // Hurst exponent H is the slope
+    std::vector<double> logN, logRS;
+    for (size_t i = 0; i < windowSizes.size() && i < rescaledRanges.size(); ++i) {
+        if (rescaledRanges[i] > 0) {
+            logN.push_back(std::log(windowSizes[i]));
+            logRS.push_back(std::log(rescaledRanges[i]));
+        }
+    }
+
+    if (logN.size() < 3) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    // Simple linear regression to find slope (Hurst exponent)
+    double meanLogN = 0.0, meanLogRS = 0.0;
+    for (size_t i = 0; i < logN.size(); ++i) {
+        meanLogN += logN[i];
+        meanLogRS += logRS[i];
+    }
+    meanLogN /= logN.size();
+    meanLogRS /= logN.size();
+
+    double numerator = 0.0, denominator = 0.0;
+    for (size_t i = 0; i < logN.size(); ++i) {
+        numerator += (logN[i] - meanLogN) * (logRS[i] - meanLogRS);
+        denominator += (logN[i] - meanLogN) * (logN[i] - meanLogN);
+    }
+
+    if (denominator < 1e-10) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    double hurst = numerator / denominator;
+
+    // Clamp to reasonable range [0, 1]
+    if (hurst < 0.0) hurst = 0.0;
+    if (hurst > 1.0) hurst = 1.0;
+
+    return hurst;
+}
