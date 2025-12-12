@@ -45,7 +45,7 @@ PyJWT==2.3.0
 # python-apt==2.4.0+ubuntu1
 python-dateutil==2.9.0.post0
 pytz==2025.2
-PyYAML==5.4.1
+# PyYAML==5.4.1
 referencing==0.37.0
 requests==2.32.5
 rpds-py==0.30.0
