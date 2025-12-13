@@ -3,29 +3,31 @@ import csv
 from datetime import datetime
 
 def fetch_to_csv(ticker):
-    API_KEY = "24BH48U7GGP2QN3" 
+    API_KEY = "24BH48U7GGP2QN3"  
 
+   
     url = (
-    "https://www.alphavantage.co/query"
-    f"?function=TIME_SERIES_DAILY&symbol={ticker}&apikey={API_KEY}"
-)
-
+        "https://www.alphavantage.co/query"
+        f"?function=TIME_SERIES_DAILY&symbol={ticker}&apikey={API_KEY}"
+    )
 
     print(f"Calling API for {ticker}...")
     r = requests.get(url)
     data = r.json()
 
+    
     if "Time Series (Daily)" not in data:
         print("API error:", data)
         return
 
     ts = data["Time Series (Daily)"]
 
-    output_path = f"{ticker}.csv" 
+    
+    output_path = f"{ticker}.csv"
 
     with open(output_path, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["date","open","high","low","close","volume"])
+        writer.writerow(["date", "open", "high", "low", "close", "volume"])
 
         for date in sorted(ts.keys()):
             d = ts[date]
@@ -35,7 +37,7 @@ def fetch_to_csv(ticker):
                 d["2. high"],
                 d["3. low"],
                 d["4. close"],
-                d["6. volume"]
+                d["5. volume"]   
             ])
 
     print("Saved:", output_path)
