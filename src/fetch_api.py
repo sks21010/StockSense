@@ -6,9 +6,10 @@ def fetch_to_csv(ticker):
     API_KEY = "24BH48U7GGP2QN3" 
 
     url = (
-        "https://www.alphavantage.co/query"
-        f"?function=TIME_SERIES_DAILY_ADJUSTED&symbol={ticker}&apikey={API_KEY}"
-    )
+    "https://www.alphavantage.co/query"
+    f"?function=TIME_SERIES_DAILY&symbol={ticker}&apikey={API_KEY}"
+)
+
 
     print(f"Calling API for {ticker}...")
     r = requests.get(url)
